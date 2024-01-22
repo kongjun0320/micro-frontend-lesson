@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <!-- 
+        沙箱
+        防止应用加载的时候，对 window 造成污染
+
+        a -> 更改了 window 属性
+        b -> 更改了 window 属性
+
+        先保留 a 应用的属性 失活的时候 把修改的属性村起来，激活的时候还原回来
+        快照，浪费内存，因为要给 window 拍照
+    -->
+    <script>
+      // 多个实例来实现
+      class ProxySandbox {
+        constructor() {
+          this.running = false;
+
+          const fakeWindow = Object.create(null);
+          this.proxy = new Proxy(fakeWindow, {
+            get: (target, key) => {
+              return key in target ? target[key] : window[key];
+            },
+            set: (target, key, value) => {
+              if (this.running) {
+                target[key] = value;
+              }
+
+              return true;
+            },
+            // 修改不再操作 window 属性
+          });
+        }
+
+        active() {
+          if (!this.running) {
+            this.running = true;
+          }
+        }
+
+        inactive() {
+          this.running = false;
+        }
+      }
+
+      const sandbox1 = new ProxySandbox();
+      const sandbox2 = new ProxySandbox();
+
+      sandbox1.active();
+      sandbox2.active();
+
+      sandbox1.proxy.a = 100;
+      sandbox2.proxy.b = 200;
+
+      console.log(sandbox1.proxy.a);
+      console.log(sandbox2.proxy.b);
+
+      sandbox1.inactive();
+      sandbox2.inactive();
+
+      sandbox1.proxy.a = 1000;
+      sandbox2.proxy.b = 2000;
+
+
+      console.log(sandbox1.proxy.a, window.a);
+      console.log(sandbox2.proxy.b);
+    </script>
+  </body>
+</html>

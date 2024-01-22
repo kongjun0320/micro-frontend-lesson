@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>static</title>
+  </head>
+  <body>
+    <div id="static" style="border: 1px solid red"></div>
+
+    <script>
+      const app = document.getElementById('static');
+
+      window['m-static'] = {
+        bootstrap: async () => {
+          console.log('static app bootstrap');
+        },
+        mount: async () => {
+          console.log('app >>> ', app);
+          app.innerHTML = 'static page';
+          console.log('static mount bootstrap');
+        },
+        unmount: async () => {},
+      };
+    </script>
+  </body>
+</html>

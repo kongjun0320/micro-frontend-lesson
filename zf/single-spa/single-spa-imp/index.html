@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <!-- <script src="https://cdn.bootcdn.net/ajax/libs/single-spa/5.9.3/umd/single-spa.min.js"></script> -->
+
+    <!-- <script> -->
+    //
+    <script type="module">
+      // 微前端 就是可以加载不同的应用，基于路由的微前端
+      // 如何接入已经写好的应用 对于 single spa 而言，我们需要改写子应用 接入协议 bootstrap mount unmount
+      // /a /b
+      //   const { registerApplication, start } = singleSpa;
+
+      import { registerApplication, start } from './single-spa/single-spa.js';
+
+      const app1 = {
+        bootstrap: [
+          async () => console.log('app1 bootstrap1'),
+          async () => console.log('app1 bootstrap2'),
+        ],
+        mount: async (props) => {
+          console.log('app1 mount ', props.name);
+          app.innerHTML = 'APP1';
+        },
+        unmount: async () => {
+          console.log('app1 unmount');
+        },
+      };
+
+      const app2 = {
+        bootstrap: async () => console.log('app2 bootstrap1'),
+        mount: async () => {
+          console.log('app2 mount');
+          app.innerHTML = 'APP2';
+        },
+        unmount: async () => {
+          console.log('app2 unmount');
+        },
+      };
+
+      // 所谓的注册应用，就是看一下路径是否匹配，如果匹配则“加载”对应的应用
+      registerApplication(
+        'a',
+        async () => app1,
+        (location) => location.hash.startsWith('#/a'),
+        { name: 'a' }
+      );
+      registerApplication(
+        'b',
+        async () => app2,
+        (location) => location.hash.startsWith('#/b'),
+        { name: 'b' }
+      );
+      // 开始路径的监控，路径切换的时候，可以调用对应的 mount、unmount
+      //   start();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <h1>主应用</h1>
+    <!-- 主应用 -->
+    <div id="root"></div>
+    <script type="systemjs-importmap">
+      {
+        "imports": {
+          "react": "https://cdn.bootcdn.net/ajax/libs/react/18.2.0/umd/react.development.js",
+          "react-dom": "https://cdn.bootcdn.net/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"
+        }
+      }
+    </script>
+    <!-- <script src="https://cdn.bootcdn.net/ajax/libs/systemjs/6.10.1/system.min.js"></script> -->
+    <script>
+      const newMapUrl = {};
+      function processScripts() {
+        Array.from(document.querySelectorAll('script')).forEach((script) => {
+          if (script.type === 'systemjs-importmap') {
+            const imports = JSON.parse(script.innerHTML).imports;
+            Object.entries(imports).forEach(([key, value]) => {
+              newMapUrl[key] = value;
+            });
+          }
+        });
+      }
+
+      function load(id) {
+        return new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = newMapUrl[id] || id;
+          script.async = true;
+
+          document.head.appendChild(script);
+
+          script.addEventListener('load', () => {
+            let _lastRegister = lastRegister;
+            lastRegister = undefined;
+
+            resolve(_lastRegister);
+          });
+        });
+      }
+
+      const set = new Set();
+      function saveGlobalProperty(key, value) {
+        window[key] = value;
+        for (const key in window) {
+          set.add(key);
+        }
+      }
+      saveGlobalProperty();
+
+      function getLastGlobalProperty() {
+        for (const key in window) {
+          if (set.has(key)) continue;
+          set.add(key);
+          return window[key];
+        }
+      }
+
+      let lastRegister;
+
+      class SystemJs {
+        import(id) {
+          // 1. 去当前路径查找对应的资源
+          return Promise.resolve(processScripts())
+            .then(() => {
+              const lastSepIndex = location.href.lastIndexOf('/');
+              const baseUrl = location.href.slice(0, lastSepIndex + 1);
+              if (id.startsWith('./')) {
+                return baseUrl + id.slice(2);
+              }
+            })
+            .then((id) => {
+              let exe;
+              return load(id)
+                .then(([deps, declare]) => {
+                  const { setters, execute } = declare(() => {});
+                  exe = execute;
+                  return [deps, setters];
+                })
+                .then(([deps, setters]) => {
+                  return Promise.all(
+                    deps.map((dep, i) => {
+                      return load(dep).then(() => {
+                        // 加载完毕后会在 window 上添加属性，window.React
+                        // 获取 window 上最后添加的属性
+                        const property = getLastGlobalProperty();
+                        setters[i](property);
+                      });
+                    })
+                  );
+                })
+                .then(() => {
+                  exe();
+                });
+            });
+        }
+
+        register(deps, declare) {
+          // 将回调的结果保存起来
+          lastRegister = [deps, declare];
+        }
+      }
+
+      const System = new SystemJs();
+
+      // 加载子应用
+      System.import('./index.js').then(() => {
+        console.log('模块加载完毕');
+      });
+    </script>
+  </body>
+</html>

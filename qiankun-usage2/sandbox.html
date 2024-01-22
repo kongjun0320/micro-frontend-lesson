@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <!-- 
+        沙箱
+        防止应用加载的时候，对 window 造成污染
+
+        a -> 更改了 window 属性
+        b -> 更改了 window 属性
+
+        先保留 a 应用的属性 失活的时候 把修改的属性村起来，激活的时候还原回来
+        快照，浪费内存，因为要给 window 拍照
+    -->
+    <script>
+      class SnapshotSandbox {
+        constructor() {
+          // 存储全局哪些属性被修改了
+          this.modifyPropsMap = {};
+        }
+        active() {
+          this.windowSnapshot = {};
+          // 给 window 拍照
+          Object.keys(window).forEach((prop) => {
+            this.windowSnapshot[prop] = window[prop];
+          });
+
+          Object.keys(this.modifyPropsMap).forEach((prop) => {
+            window[prop] = this.modifyPropsMap[prop];
+          });
+        }
+        inactive() {
+          this.modifyPropsMap = {};
+          Object.keys(window).forEach((prop) => {
+            if (window[prop] !== this.windowSnapshot[prop]) {
+              this.modifyPropsMap[prop] = window[prop];
+              window[prop] = this.windowSnapshot[prop];
+            }
+          });
+        }
+      }
+
+      const sandbox = new SnapshotSandbox();
+      // 激活
+      sandbox.active();
+      window.a = 100;
+      window.b = 200;
+      // 失活
+      sandbox.inactive();
+
+      console.log(window.a, window.b);
+      // 重新激活
+      sandbox.active();
+      console.log(window.a, window.b);
+
+      // 缺点是浪费内存
+      // 改进：存储修改的或者添加的属性，不要给 window 拍照
+    </script>
+  </body>
+</html>

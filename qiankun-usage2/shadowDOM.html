@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shadow DOM Example</title>
+    <style>
+      p {
+        color: red;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 外部文档的内容 -->
+    <div>
+      <p>外部的内容</p>
+    </div>
+    <div id="hostElement">
+      <!-- Shadow DOM的宿主元素 -->
+      <p>This is the host element's content.</p>
+    </div>
+
+    <script>
+      // 获取宿主元素
+      const hostElement = document.getElementById('hostElement');
+
+      // 在宿主元素上创建Shadow DOM
+      const shadowRoot = hostElement.attachShadow({ mode: 'open' });
+
+      // 创建一个新的元素在Shadow DOM中
+      const paragraph = document.createElement('p');
+      paragraph.textContent = 'This is the shadow DOM content.';
+
+      // 将新元素添加到Shadow DOM中
+      shadowRoot.appendChild(paragraph);
+    </script>
+  </body>
+</html>

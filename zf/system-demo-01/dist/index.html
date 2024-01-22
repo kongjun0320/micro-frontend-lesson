@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- 主应用 - 基座 - 用来加载子应用 -->
+    <script type="systemjs-importmap">
+      {
+        "imports": {
+          "react": "https://cdn.bootcdn.net/ajax/libs/react/18.2.0/umd/react.development.js",
+          "react-dom": "https://cdn.bootcdn.net/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"
+        }
+      }
+    </script>
+    <!-- <script src="https://cdn.bootcdn.net/ajax/libs/systemjs/6.10.1/system.min.js"></script> -->
+    <script>
+      // 1. systemjs 是如何定义的，第一个参数是依赖列表，第二个参数是回调函数，回调函数的参数是依赖列表的返回值
+      // 2. react react-dom，加载后调用 setters 将对应的结果赋予给 webpack
+      // 3. 调用执行逻辑，执行页面渲染
+
+      const newMapUrl = {};
+      let lastRegister;
+
+      function processScripts(resolve, reject) {
+        Array.from(document.querySelectorAll('script')).forEach((script) => {
+          if (script.type === 'systemjs-importmap') {
+            const imports = JSON.parse(script.innerHTML).imports;
+            Object.entries(imports).forEach(([key, value]) => {
+              newMapUrl[key] = value;
+            });
+          }
+        });
+      }
+
+      function load(id) {
+        return new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          // 支持 CDN 加载
+          script.src = newMapUrl[id] || id;
+          script.async = true;
+          document.head.appendChild(script);
+
+          script.addEventListener('load', () => {
+            let _lastRegister = lastRegister;
+            lastRegister = null;
+            resolve(_lastRegister);
+          });
+        });
+      }
+
+      const set = new Set();
+      // 先保存一下 window 上的属性
+      function saveGlobalProperty() {
+        for (const key in window) {
+          set.add(key);
+        }
+      }
+
+      saveGlobalProperty();
+
+      function getLastGlobalProperty() {
+        // 查看 window 上新增了哪些属性
+        for (const key in window) {
+          if (set.has(key)) continue;
+          set.add(key);
+          return window[key];
+        }
+      }
+
+      // 模块规范，用来加载 system 模块
+      class SystemJs {
+        import(id) {
+          // 这个 id 原则上可以是一个第三方路径（CDN）
+          return Promise.resolve(processScripts())
+            .then(() => {
+              // 去当前路径查找对应的资源
+              const lastSepIndex = location.href.lastIndexOf('/');
+              const baseUrl = location.href.slice(0, lastSepIndex + 1);
+              if (id.startsWith('./')) {
+                return baseUrl + id.slice(2);
+              }
+            })
+            .then((id) => {
+              // 根据文件的路径来加载资源
+              let execute;
+              return load(id)
+                .then((register) => {
+                  // execute 是真正执行的渲染逻辑
+                  // setters 是用来保存加载后的资源
+                  const { setters, execute: exe } = register[1](() => {});
+                  execute = exe;
+                  return [register[0], setters];
+                })
+                .then(([registeration, setters]) => {
+                  return Promise.all(
+                    registeration.map((dep, i) => {
+                      // 拿到的是函数，加载资源，将加载后的脚本传递给这个 setter
+                      load(dep).then(() => {
+                        const property = getLastGlobalProperty();
+                        // 加载完毕后，会在 window 上挂载对应的属性 window.React、window.ReactDOM
+                        setters[i](property);
+                      });
+                    })
+                  );
+                })
+                .then(() => {
+                  execute();
+                });
+            });
+        }
+
+        register(deps, declare) {
+          // 将回调的结果保存起来
+          lastRegister = [deps, declare];
+        }
+      }
+
+      const System = new SystemJs();
+      // 直接加载子应用，导入打包后的包，进行加载，采用的规范 system 规范
+      System.import('./index.js').then(() => {
+        console.log('模块加载完毕');
+      });
+
+      // 本质就是先加载依赖列表，再去加载真正的逻辑
+      // 内部通过 script 标签来加载资源，给 window 拍照保存先后状态
+    </script>
+  </body>
+</html>

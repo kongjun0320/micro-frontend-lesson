@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <!-- 
+        1. custom element 允许用户自定义元素，随便起名字
+        2. 包含了 shadow DOM 支持样式隔离，shadow dom 是 WebComponent 的一部分
+        3. 可以支持组件的特点：模版、插槽、生命周期、属性 都是组件的特点
+     -->
+    <!-- <my-button>默认按钮</my-button> -->
+    <my-button type="primary">核心按钮</my-button>
+    <!-- template 是浏览器内置的，默认不会显示出来 -->
+    <template id="btn">
+      <button class="my-btn">
+        <slot>默认按钮</slot>
+      </button>
+    </template>
+
+    <script>
+      // micro-app 核心是将你的应用变成自定义元素，插入到基座中
+      class MyButton extends HTMLElement {
+        connectedCallback() {
+          console.log('元素加载完毕');
+          // 元素挂载完成后，我们需要获取传入的属性，并且使用对应的模版来渲染
+
+          this.shadow = this.attachShadow({ mode: 'closed' });
+          // 这里可以换成获取远程 HTML
+          const btn = document.getElementById('btn');
+          const btnType = this.getAttribute('type') || 'default';
+          this.types = {
+            default: 'gray',
+            primary: 'blue',
+          };
+
+          const styleEle = document.createElement('style');
+          styleEle.innerHTML = `
+            .my-btn {
+                background-color: ${this.types[btnType]};
+                color: #fff
+            }
+          `;
+
+          const tpl = btn.content.cloneNode(true);
+
+          // 样式隔离
+          this.shadow.appendChild(styleEle);
+          // js 隔离
+          this.shadow.appendChild(tpl);
+
+          this.dispatchEvent(new Event('mounted'));
+
+          console.log(this.shadow.querySelector('.my-btn'));
+        }
+
+        static get observedAttributes() {
+          return ['type'];
+        }
+
+        attributeChangedCallback(name, oldVal, newVal) {
+          console.log(name, oldVal, newVal);
+
+          if (this.shadow) {
+            const btn = this.shadow.querySelector('.my-btn');
+            btn.style.backgroundColor = this.types[newVal];
+            this.dispatchEvent(new Event('updated'));
+          }
+        }
+        // 卸载
+        disconnectedCallback() {
+          console.log('disconnectedCallback');
+        }
+        // 移动
+        adoptedCallback() {
+          console.log('adoptedCallback');
+        }
+      }
+
+      const customBtn = document.querySelector('my-button');
+
+      customBtn.addEventListener('mounted', () => {
+        console.log('mounted');
+      });
+      customBtn.addEventListener('updated', () => {
+        console.log('updated');
+      });
+
+      window.customElements.define('my-button', MyButton);
+
+      console.log('customBtn >>> ', customBtn);
+      //   setTimeout(() => {
+      //     customBtn.setAttribute('type', 'default');
+      //   }, 1000);
+
+      setTimeout(() => {
+        customBtn.parentNode.removeChild(customBtn);
+      }, 1000);
+    </script>
+  </body>
+</html>

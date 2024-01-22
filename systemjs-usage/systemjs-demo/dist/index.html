@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <!-- 主应用 - 基座 - 用来加载子应用的 -->
+    <script type="systemjs-importmap">
+      {
+        "imports": {
+          "react": "https://cdn.bootcdn.net/ajax/libs/react/18.2.0/umd/react.development.js",
+          "react-dom": "https://cdn.bootcdn.net/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"
+        }
+      }
+    </script>
+    <div id="root"></div>
+    <!-- <script src="https://cdn.bootcdn.net/ajax/libs/systemjs/6.14.2/system.js"></script> -->
+    <script>
+      //  systemjs 是如何定义的
+      //  1. 先看打包后的结果，System.register(依赖列表，后调函数返回值一个 setters、execute)
+      //  2. react、react-dom 加载后调用 setters ，将对应的结果赋予给 webpack
+      //  3. 调用执行逻辑，执行页面渲染
+
+      const newMapUrl = {};
+      function processScrips() {
+        Array.from(document.querySelectorAll('script')).forEach((script) => {
+          if (script.type === 'systemjs-importmap') {
+            const imports = JSON.parse(script.innerHTML).imports;
+
+            Object.entries(imports).forEach(([key, value]) => {
+              newMapUrl[key] = value;
+            });
+          }
+        });
+      }
+
+      function load(id) {
+        return new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = newMapUrl[id] || id;
+          script.async = true;
+          document.head.appendChild(script);
+          script.addEventListener('load', function () {
+            let _lastRegister = lastRegister;
+            lastRegister = undefined;
+
+            resolve(_lastRegister);
+          });
+        });
+      }
+
+      let set = new Set();
+
+      function saveGlobalProperty() {
+        for (const key in window) {
+          set.add(key);
+        }
+      }
+
+      saveGlobalProperty();
+
+      function getLastGlobalProperty() {
+        for (const key in window) {
+          if (set.has(key)) continue;
+
+          set.add(key);
+          return window[key];
+        }
+      }
+
+      let lastRegister;
+
+      class SystemJs {
+        import(id) {
+          return Promise.resolve(processScrips())
+            .then(() => {
+              const lastSepIndex = location.href.lastIndexOf('/');
+              const baseURL = location.href.slice(0, lastSepIndex + 1);
+
+              if (id.startsWith('./')) {
+                return baseURL + id.slice(2);
+              }
+            })
+            .then((id) => {
+              let execute;
+              return load(id)
+                .then((register) => {
+                  const { setters, execute: exe } = register[1](() => {});
+                  execute = exe;
+                  return [register[0], setters];
+                })
+                .then(([registeration, setters]) => {
+                  return Promise.all(
+                    registeration.map((dep, i) => {
+                      return load(dep).then(() => {
+                        const property = getLastGlobalProperty();
+                        setters[i](property);
+                      });
+                    })
+                  );
+                })
+                .then(() => {
+                  execute();
+                });
+            });
+        }
+
+        register(deps, declare) {
+          lastRegister = [deps, declare];
+        }
+      }
+
+      const System = new SystemJs();
+
+      System.import('./index.js');
+    </script>
+  </body>
+</html>
